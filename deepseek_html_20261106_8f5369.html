@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* --- ВРЕМЯ --- */
+        .clock {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #000;
+            z-index: 10;
+        }
+
+        /* --- КОПИЯ ВАШЕГО ЛОГОТИПА (ЧИСТЫЙ CSS/SVG) --- */
+        .my-logo {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            /* Базовое свечение */
+            box-shadow: 0 0 15px 2px rgba(255, 235, 100, 0.4);
+            background: radial-gradient(circle at 40% 40%, #fff6a8 0%, #ffeb3b 40%, #fbc02d 80%, #e5a900 100%);
+            /* Плавный переход для свечения и масштаба */
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+            cursor: default;
+        }
+
+        /* ЭФФЕКТ ПРИ НАВЕДЕНИИ (Яркое свечение) */
+        .my-logo:hover {
+            box-shadow: 0 0 35px 10px rgba(255, 215, 0, 0.8), 
+                        inset 0 0 15px rgba(255, 255, 255, 0.5);
+            transform: scale(1.03); /* Легкое увеличение */
+        }
+
+        .logo-large {
+            width: 90px;
+            height: 90px;
+            margin-right: 15px;
+        }
+
+        .logo-small {
+            width: 42px;
+            height: 42px;
+        }
+
+        /* Внутренняя SVG-отрисовка мордочки */
+        .my-logo svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* --- ГЛАВНЫЙ ЭКРАН --- */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            padding: 0 20px;
+            margin-top: -80px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            user-select: none;
+        }
+
+        .logo-text {
+            font-size: 72px;
+            font-weight: 700;
+            color: #333333;
+            letter-spacing: -2px;
+        }
+
+        .search-form {
+            width: 100%;
+            position: relative;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            height: 64px;
+            border: 3px solid #000000;
+            background-color: #ffffff;
+            padding: 0 15px;
+            border-radius: 12px;
+        }
+
+        .search-input-wrapper:focus-within {
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+        }
+
+        .search-icon-svg {
+            width: 28px;
+            height: 28px;
+            margin-right: 15px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            font-size: 24px;
+            font-family: inherit;
+            font-weight: 700;
+            color: #000000;
+            background: transparent;
+        }
+
+        .search-input::placeholder {
+            color: #000000;
+            opacity: 1;
+            font-weight: 700;
+        }
+
+        .right-emoji-btn {
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .right-emoji-btn .my-logo:hover {
+            box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.8); /* Свечение для маленького логотипа */
+            transform: scale(1.1);
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #000000;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        /* --- МЕНЮ ВЫБОРА ПОИСКОВИКА --- */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            overflow: hidden;
+        }
+
+        .menu-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .rain-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .drop {
+            position: absolute;
+            top: -20px;
+            width: 12px;
+            height: 20px;
+            background-color: #FFD700;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            animation: fall linear infinite;
+            opacity: 0.7;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(-20px) scaleY(1); opacity: 0.7; }
+            80% { opacity: 0.8; }
+            100% { transform: translateY(105vh) scaleY(1.5); opacity: 0; }
+        }
+
+        .drop:nth-child(1) { left: 10%; animation-duration: 2.5s; animation-delay: 0s; }
+        .drop:nth-child(2) { left: 25%; animation-duration: 3s; animation-delay: 0.5s; }
+        .drop:nth-child(3) { left: 40%; animation-duration: 2s; animation-delay: 1s; }
+        .drop:nth-child(4) { left: 55%; animation-duration: 3.5s; animation-delay: 0.2s; }
+        .drop:nth-child(5) { left: 70%; animation-duration: 2.8s; animation-delay: 1.5s; }
+        .drop:nth-child(6) { left: 85%; animation-duration: 2.2s; animation-delay: 0.8s; }
+        .drop:nth-child(7) { left: 15%; animation-duration: 3.2s; animation-delay: 2s; }
+        .drop:nth-child(8) { left: 60%; animation-duration: 2.7s; animation-delay: 1.2s; }
+        .drop:nth-child(9) { left: 90%; animation-duration: 2.1s; animation-delay: 0.1s; }
+        .drop:nth-child(10) { left: 35%; animation-duration: 3.8s; animation-delay: 2.5s; }
+
+        .back-arrow {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            font-size: 40px;
+            cursor: pointer;
+            background: #FFD700;
+            border: 3px solid #000;
+            padding: 5px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            line-height: 1;
+            transition: transform 0.1s;
+            user-select: none;
+            z-index: 10;
+        }
+
+        .back-arrow:hover {
+            transform: scale(1.05);
+        }
+
+        .menu-content {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 100px;
+            z-index: 10;
+        }
+
+        .menu-logo-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 40px;
+            user-select: none;
+        }
+
+        .menu-logo-section .logo-text {
+            font-size: 50px;
+        }
+
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 25px 20px;
+            font-size: 24px;
+            font-weight: 700;
+            font-family: 'Inter', Arial, sans-serif;
+            color: #000000;
+            background-color: #ffffff;
+            border: 3px solid #000000;
+            border-radius: 15px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.1s, transform 0.1s;
+            position: relative;
+            z-index: 10;
+            margin-bottom: 15px;
+        }
+
+        .menu-btn:hover {
+            background-color: #f9f9f9;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 600px) {
+            .clock { font-size: 18px; top: 15px; left: 15px; }
+            .logo-text, .menu-logo-section .logo-text { font-size: 40px; }
+            .logo-large, .logo-small { width: 60px; height: 60px; }
+            .logo-small { width: 35px; height: 35px; }
+            .search-input-wrapper { height: 54px; }
+            .search-input { font-size: 18px; }
+            .back-arrow { top: 20px; left: 20px; font-size: 30px; padding: 5px 15px; }
+            .menu-content { margin-top: 80px; padding: 0 20px; }
+            .menu-btn { font-size: 18px; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Время -->
+    <div class="clock" id="clock">00:00:00</div>
+
+    <!-- ГЛАВНЫЙ ЭКРАН -->
+    <div class="main-container">
+        <div class="logo-section">
+            
+            <!-- ТОЧНАЯ КОПИЯ ВАШЕГО ЛОГОТИПА -->
+            <div class="my-logo logo-large">
+                <svg viewBox="0 0 100 100">
+                    <!-- Левый глаз (смещен левее) -->
+                    <circle cx="26" cy="50" r="7.5" fill="#1A1A1A" />
+                    <!-- Правый глаз (увеличен зазор) -->
+                    <circle cx="46" cy="50" r="7.5" fill="#1A1A1A" />
+                    
+                    <!-- Рот (справа) -->
+                    <path d="M 67 48 Q 76 58 84 46" stroke="#1A1A1A" stroke-width="4" fill="transparent" stroke-linecap="round" />
+                </svg>
+            </div>
+
+            <div class="logo-text">найдёт всё</div>
+        </div>
+
+        <form class="search-form" id="searchForm">
+            <div class="search-input-wrapper">
+                <svg class="search-icon-svg" id="searchIcon" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                
+                <input type="text" id="searchInput" class="search-input" placeholder="найдется все" autocomplete="off" required>
+                
+                <button type="button" class="right-emoji-btn" id="emojiMenuBtn" title="Выбрать поисковик">
+                    <!-- Мини-версия логотипа -->
+                    <div class="my-logo logo-small">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="26" cy="50" r="7.5" fill="#1A1A1A" />
+                            <circle cx="46" cy="50" r="7.5" fill="#1A1A1A" />
+                            <path d="M 67 48 Q 76 58 84 46" stroke="#1A1A1A" stroke-width="4" fill="transparent" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="footer">
+        <span>Проект находится в стадии разработки</span>
+        <span>Fandex.ru 2026</span>
+    </div>
+
+    <!-- МЕНЮ ВЫБОРА ПОИСКОВИКА -->
+    <div class="menu-overlay" id="searchMenu">
+        <div class="rain-background">
+            <div class="drop"></div><div class="drop"></div><div class="drop"></div>
+            <div class="drop"></div><div class="drop"></div><div class="drop"></div>
+            <div class="drop"></div><div class="drop"></div><div class="drop"></div>
+            <div class="drop"></div>
+        </div>
+
+        <div class="back-arrow" id="backBtn">⬅</div>
+        
+        <div class="menu-content">
+            <div class="menu-logo-section">
+                <!-- Ваш логотип в меню -->
+                <div class="my-logo logo-large" style="width: 70px; height: 70px;">
+                    <svg viewBox="0 0 100 100">
+                        <circle cx="26" cy="50" r="7.5" fill="#1A1A1A" />
+                        <circle cx="46" cy="50" r="7.5" fill="#1A1A1A" />
+                        <path d="M 67 48 Q 76 58 84 46" stroke="#1A1A1A" stroke-width="4" fill="transparent" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="logo-text">найдёт всё</div>
+            </div>
+
+            <a href="#" class="menu-btn" id="btnYandex">Поиск в Яндексе</a>
+            <a href="#" class="menu-btn" id="btnGoogle">Поиск в Google</a>
+        </div>
+    </div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock(); 
+
+        const menuOverlay = document.getElementById('searchMenu');
+        const searchInput = document.getElementById('searchInput');
+        const searchForm = document.getElementById('searchForm');
+        const emojiBtn = document.getElementById('emojiMenuBtn');
+        const searchIcon = document.getElementById('searchIcon');
+        const backBtn = document.getElementById('backBtn');
+        
+        const btnYandex = document.getElementById('btnYandex');
+        const btnGoogle = document.getElementById('btnGoogle');
+
+        function openMenu(e) {
+            if (e) e.preventDefault();
+            if (!searchInput.value.trim()) {
+                searchInput.reportValidity();
+                return;
+            }
+            menuOverlay.classList.add('active');
+        }
+
+        emojiBtn.addEventListener('click', openMenu);
+        searchIcon.addEventListener('click', openMenu);
+        searchForm.addEventListener('submit', openMenu);
+
+        backBtn.addEventListener('click', () => {
+            menuOverlay.classList.remove('active');
+        });
+
+        function setupSearchLinks() {
+            const query = encodeURIComponent(searchInput.value.trim());
+            btnYandex.href = `https://yandex.ru/search/?text=${query}`;
+            btnGoogle.href = `https://www.google.com/search?q=${query}`;
+            btnYandex.target = "_blank";
+            btnGoogle.target = "_blank";
+        }
+
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class' && menuOverlay.classList.contains('active')) {
+                    setupSearchLinks();
+                }
+            });
+        });
+        observer.observe(menuOverlay, { attributes: true });
+
+    </script>
+</body>
+</html>
