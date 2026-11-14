@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FanOS+</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;user-select:none;-webkit-tap-highlight-color:transparent}
+body{height:100vh;overflow:hidden;display:flex;flex-direction:column;background:#0a0a1a;color:#000;position:relative}
+
+/* ======================= ОБОИ ======================= */
+.wallpaper{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,#00bfff 0%,#7a3cff 50%,#b03cff 100%);background-size:200% 200%;animation:bgShift 8s ease infinite;transition:background .3s}
+.wallpaper.default-wp{background:linear-gradient(135deg,#00bfff 0%,#7a3cff 50%,#b03cff 100%);background-size:200% 200%;animation:bgShift 8s ease infinite}
+.wallpaper::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 30% 40%,rgba(0,100,255,.9) 0%,transparent 70%),radial-gradient(ellipse 50% 60% at 75% 60%,rgba(180,0,255,.8) 0%,transparent 70%),radial-gradient(ellipse 40% 50% at 20% 80%,rgba(0,200,255,.7) 0%,transparent 70%);filter:blur(20px);animation:shapeShift 12s ease-in-out infinite alternate;pointer-events:none}
+@keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes shapeShift{0%{transform:scale(1) rotate(0deg)}100%{transform:scale(1.15) rotate(4deg)}}
+
+/* Если обои кастомные — прячем блики и анимацию */
+.wallpaper.custom-wp{animation:none;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important}
+.wallpaper.custom-wp::before{display:none !important;opacity:0 !important;background:none !important;animation:none !important}
+
+/* ======================= РАБОЧИЙ СТОЛ ======================= */
+.desktop{position:relative;flex:1;overflow:hidden;z-index:1}
+.app-icon{position:absolute;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:grab;width:80px;text-align:center;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));touch-action:none;transition:filter .15s}
+.app-icon:active{cursor:grabbing}
+.app-icon.dragging{z-index:9999;filter:drop-shadow(0 12px 24px rgba(0,0,0,.9))}
+.icon-visual{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:32px;border:3px solid #000;border-radius:16px;box-shadow:3px 3px 0 #000;transition:transform .1s;flex-shrink:0;pointer-events:none;overflow:hidden;background:#fff}
+.icon-visual img{width:100%;height:100%;object-fit:cover;border-radius:13px}
+.app-icon:hover .icon-visual{transform:scale(1.05)}
+.app-label{font-size:11px;font-weight:800;color:#fff;text-shadow:1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,0 2px 4px #000;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
+.icon-delete{position:absolute;top:-6px;right:2px;width:22px;height:22px;background:#ff2222;color:#fff;border:2px solid #000;border-radius:50%;font-size:14px;font-weight:900;line-height:1;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:10;box-shadow:2px 2px 0 #000}
+.app-icon:hover .icon-delete{display:flex}
+.icon-delete:hover{background:#cc0000;transform:scale(1.1)}
+
+.empty-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#000;font-size:16px;line-height:1.8;background:rgba(255,255,255,.85);border:3px solid #000;padding:24px 32px;border-radius:8px;box-shadow:6px 6px 0 #000;font-weight:700;pointer-events:none}
+.empty-hint .big{font-size:48px;display:block;margin-bottom:12px}
+
+/* ======================= ПАНЕЛЬ ЗАДАЧ ======================= */
+.taskbar{position:fixed;bottom:0;left:0;right:0;height:48px;background:#e8e8f0;border-top:4px solid #000;display:flex;align-items:center;z-index:1000;box-shadow:0 -2px 0 rgba(0,0,0,.1)}
+.tb-logo{height:100%;padding:0 14px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:#000;border-right:3px solid #000;background:#f5f5ff;letter-spacing:-.3px;white-space:nowrap}
+.tb-logo .plus{color:#ff6600;margin-left:2px;font-size:18px}
+.tb-url{flex:1;height:100%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:#000;background:#d8d8e8;border-right:3px solid #000;padding:0 10px;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;position:relative}
+.tb-battery{height:100%;padding:0 12px;display:flex;align-items:center;gap:4px;border-left:3px solid #000;background:#f5f5ff}
+.battery-body{width:34px;height:18px;border:3px solid #000;border-radius:3px;position:relative;background:#fff}
+.battery-body::after{content:'';position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:3px;height:8px;background:#000;border-radius:0 2px 2px 0}
+.battery-fill{position:absolute;top:2px;left:2px;bottom:2px;width:75%;background:#ffcc00;border-radius:1px}
+
+/* ======================= КОНТЕКСТНОЕ МЕНЮ ======================= */
+.ctx-menu{position:fixed;z-index:6000;background:#e8e8f0;border:3px solid #000;border-radius:4px;box-shadow:4px 4px 0 #000;padding:4px;display:none;min-width:180px}
+.ctx-menu.open{display:block}
+.ctx-item{padding:9px 14px;font-size:13px;font-weight:800;color:#000;cursor:pointer;border-radius:2px;display:flex;align-items:center;gap:8px}
+.ctx-item:hover{background:#ffcc00}
+.ctx-item.danger:hover{background:#ff5f57;color:#fff}
+.ctx-sep{height:2px;background:#000;margin:4px 0;opacity:.15}
+
+/* ======================= МОДАЛКА УСТАНОВКИ ======================= */
+.modal-overlay{position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#e8e8f0;border:4px solid #000;border-radius:4px;box-shadow:8px 8px 0 rgba(0,0,0,.4);max-width:440px;width:100%;overflow:hidden;animation:modalPop .2s ease-out}
+@keyframes modalPop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-header{background:#000;color:#fff;padding:12px 18px;display:flex;align-items:center;gap:10px;font-weight:900;font-size:16px}
+.modal-body{padding:24px 22px;text-align:center}
+.modal-body .file-name{font-weight:900;font-size:18px;color:#000;margin-bottom:8px;word-break:break-all}
+.modal-body .file-size{font-size:13px;color:#555;font-weight:700;margin-bottom:18px}
+.wait-text{font-size:14px;color:#333;font-weight:700;margin-bottom:12px}
+.progress-wrap{height:12px;border:3px solid #000;border-radius:3px;background:#fff;overflow:hidden;margin-bottom:8px}
+.progress-bar{height:100%;width:0%;background:#ffcc00;transition:width .1s linear}
+.progress-time{font-size:13px;font-weight:800;color:#000;margin-bottom:20px}
+.modal-actions{display:flex;gap:10px}
+.btn{flex:1;padding:12px 16px;font-weight:900;font-size:14px;border:3px solid #000;border-radius:3px;cursor:pointer;transition:transform .1s,background .15s;text-transform:uppercase}
+.btn:active{transform:scale(.96)}
+.btn-cancel{background:#e0e0e0;color:#000;box-shadow:3px 3px 0 #000}
+.btn-cancel:hover{background:#c8c8c8}
+.btn-install{background:#ffcc00;color:#000;box-shadow:3px 3px 0 #000}
+.btn-install:hover{background:#ffaa00}
+.btn-install:disabled{background:#999;color:#555;cursor:not-allowed;box-shadow:none;transform:none}
+
+/* ======================= ОКНО ПРОГРАММЫ ======================= */
+.app-window{position:fixed;inset:0;z-index:3000;display:none;flex-direction:column;background:#000}
+.app-window.active{display:flex}
+.window-header{height:44px;background:#e8e8f0;border-bottom:4px solid #000;display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0}
+.window-header .win-title{font-weight:900;font-size:15px;color:#000;display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.window-header .win-title .dot{width:12px;height:12px;border:2px solid #000;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.red{background:#ff5f57}.dot.yellow{background:#febc2e}.dot.green{background:#28c840}
+.win-close-btn{background:#ffcc00;border:3px solid #000;border-radius:3px;color:#000;width:34px;height:34px;font-size:20px;font-weight:900;line-height:1;cursor:pointer;box-shadow:2px 2px 0 #000;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .1s,background .15s}
+.win-close-btn:hover{background:#ffaa00}
+.win-close-btn:active{transform:scale(.92)}
+.window-iframe{flex:1;width:100%;border:none;background:#fff;display:block}
+
+/* ======================= АДАПТИВ ======================= */
+@media(max-width:600px){
+    .app-icon{width:70px}
+    .icon-visual{width:56px;height:56px;font-size:28px;border-radius:14px}
+    .icon-visual img{border-radius:11px}
+    .app-label{font-size:10px;max-width:70px}
+    .taskbar{height:44px}
+    .tb-logo{font-size:13px;padding:0 8px}
+    .tb-url{font-size:12px;padding:0 6px}
+    .tb-battery{padding:0 6px}
+    .battery-body{width:28px;height:16px}
+    .modal-body{padding:18px 16px}
+    .modal-body .file-name{font-size:15px}
+    .btn{font-size:12px;padding:10px 12px}
+}
+@media(max-width:400px){
+    .tb-url{font-size:10px}
+    .empty-hint{font-size:13px;padding:16px 20px}
+}
+</style>
+</head>
+<body>
+
+<div class="wallpaper default-wp" id="wallpaper"></div>
+
+<div class="desktop" id="desktop">
+    <div id="iconsContainer"></div>
+</div>
+
+<div class="taskbar">
+    <div class="tb-logo">FanOS<span class="plus">+</span></div>
+    <div class="tb-url">www.FanOS.ru</div>
+    <div class="tb-battery">
+        <div class="battery-body"><div class="battery-fill"></div></div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" style="display:none" accept=".html,.htm" multiple>
+<input type="file" id="iconInput" style="display:none" accept="image/*">
+
+<div class="ctx-menu" id="ctxMenu">
+    <div class="ctx-item" id="ctxOpen">📂 Открыть</div>
+    <div class="ctx-item" id="ctxChangeIcon">🖼️ Изменить иконку</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" id="ctxDelete">🗑️ Удалить</div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+        <div class="modal-header"><span style="font-size:20px">⚙️</span><span>Установка приложения</span></div>
+        <div class="modal-body">
+            <div class="file-name" id="modalFileName">app.html</div>
+            <div class="file-size" id="modalFileSize">0 KB</div>
+            <div class="wait-text">Подготовка к установке...</div>
+            <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="progress-time" id="progressTime">5 сек</div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" id="btnCancel">Отмена</button>
+                <button class="btn btn-install" id="btnInstall" disabled>Установить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="app-window" id="appWindow">
+    <div class="window-header">
+        <div class="win-title">
+            <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+            <span id="windowTitle" style="margin-left:4px;">Программа</span>
+        </div>
+        <button class="win-close-btn" id="winCloseBtn" title="Закрыть">✕</button>
+    </div>
+    <iframe class="window-iframe" id="appIframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-top-navigation-by-user-activation"></iframe>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+let apps = [];
+let appCounter = 0;
+let wifiConfig = { ssid: '', password: '' };
+let accountConfig = { email: '', password: '' };
+let ctxTargetAppId = null;
+
+const wallpaperEl = document.getElementById('wallpaper');
+const savedWallpaperKey = 'fanos_wallpaper';
+const savedWallpaperIdKey = 'fanos_current_wallpaper_id';
+
+/* Загрузка обоев при старте */
+try {
+    const savedWp = localStorage.getItem(savedWallpaperKey);
+    if (savedWp) {
+        wallpaperEl.classList.remove('default-wp');
+        wallpaperEl.classList.add('custom-wp');
+        wallpaperEl.style.background = 'url(' + savedWp + ') center/cover no-repeat';
+    }
+} catch(e) {}
+
+/* ============================================================
+   ВСТРОЕННЫЕ HTML ПРОГРАММЫ (без изменений)
+   ============================================================ */
+/* 1. НАСТРОЙКИ */
+const HTML_SETTINGS = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#f0f0f5;color:#000}.h{background:#000;color:#fff;padding:18px 24px;font-weight:900;font-size:20px;display:flex;gap:12px;border-bottom:4px solid #000}.tabs{display:flex;gap:6px;padding:14px 18px 0;background:#e8e8f0;border-bottom:4px solid #000;flex-wrap:wrap}.tab{padding:10px 18px;font-weight:900;font-size:14px;background:#d0d0dc;border:3px solid #000;border-bottom:none;border-radius:4px 4px 0 0;cursor:pointer;margin-bottom:-4px}.tab.active{background:#ffcc00;transform:translateY(-2px)}.content{padding:24px;max-width:640px;margin:0 auto}.section{display:none}.section.active{display:block}.section h2{font-size:20px;font-weight:900;margin-bottom:18px;padding-bottom:10px;border-bottom:3px solid #000}.row{background:#fff;border:3px solid #000;border-radius:4px;padding:16px;margin-bottom:14px;box-shadow:3px 3px 0 #000}.row label{display:block;font-weight:900;font-size:13px;margin-bottom:6px}.row input{width:100%;padding:10px 12px;border:3px solid #000;border-radius:3px;font-size:14px;font-weight:700;outline:none;background:#f5f5ff}.row input:focus{background:#fffbe0}.save{background:#ffcc00;border:3px solid #000;padding:12px 22px;font-weight:900;font-size:14px;cursor:pointer;box-shadow:3px 3px 0 #000}.save:hover{background:#ffaa00}.save:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}.status-ok{display:inline-flex;align-items:center;gap:8px;background:#00c853;color:#fff;border:3px solid #000;padding:8px 16px;font-weight:900;font-size:14px;box-shadow:3px 3px 0 #000}.status-ok .dot{width:10px;height:10px;background:#fff;border-radius:50%;animation:pulse 1.5s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}.info-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:2px solid #d0d0d0;font-size:14px}.info-line:last-child{border-bottom:none}.info-line .k{color:#555;font-weight:800}.info-line .v{font-weight:900}.app-list-item{display:flex;align-items:center;gap:14px;background:#fff;border:3px solid #000;border-radius:4px;padding:12px 16px;margin-bottom:10px;box-shadow:3px 3px 0 #000}.app-list-item .ico{width:44px;height:44px;border:3px solid #000;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;overflow:hidden;background:#f5f5ff}.app-list-item .ico img{width:100%;height:100%;object-fit:cover;border-radius:9px}.app-list-item .info{flex:1;min-width:0}.app-list-item .info .nm{font-weight:900;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.app-list-item .info .sub{font-size:11px;color:#555;font-weight:700}.app-list-item button{padding:8px 14px;border:3px solid #000;border-radius:3px;font-weight:900;font-size:12px;cursor:pointer;box-shadow:2px 2px 0 #000;background:#ffcc00}.app-list-item button:hover{background:#ffaa00}.app-list-item button.danger{background:#ff5f57;color:#fff}.app-list-item button.danger:hover{background:#cc0000}.upload-area{margin-bottom:18px;padding:18px;background:#fff;border:3px dashed #000;border-radius:4px;text-align:center}.upload-area .btn-upload{background:#ffcc00;border:3px solid #000;padding:14px 28px;font-weight:900;font-size:15px;cursor:pointer;box-shadow:3px 3px 0 #000;border-radius:3px}.upload-area .btn-upload:hover{background:#ffaa00}.upload-area .btn-upload:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}.wp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-top:12px}.wp-item{aspect-ratio:1;border:3px solid #000;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #000;overflow:hidden;position:relative;transition:transform .1s;background:#ddd}.wp-item:hover{transform:translateY(-2px)}.wp-item img{width:100%;height:100%;object-fit:cover;display:block}.wp-item .check{position:absolute;top:4px;right:4px;background:#00c853;color:#fff;width:22px;height:22px;border-radius:50%;border:2px solid #000;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}.wp-item .del{position:absolute;bottom:4px;right:4px;background:#ff5f57;color:#fff;width:22px;height:22px;border-radius:50%;border:2px solid #000;font-size:14px;font-weight:900;display:none;align-items:center;justify-content:center;cursor:pointer;line-height:1}.wp-item:hover .del{display:flex}.wp-empty{grid-column:1/-1;text-align:center;padding:30px;font-weight:700;color:#555}.btn-default-wp{background:#ffcc00;border:3px solid #000;padding:10px 20px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:3px 3px 0 #000;border-radius:3px;margin-top:12px}.btn-default-wp:hover{background:#ffaa00}</style></head><body>
+<div class="h">⚙️ Настройки FanOS+</div>
+<div class="tabs">
+<div class="tab active" data-tab="wifi">📶 Wi-Fi</div>
+<div class="tab" data-tab="account">👤 Аккаунт</div>
+<div class="tab" data-tab="wallpaper">🖼️ Обои</div>
+<div class="tab" data-tab="about">💻 О системе</div>
+<div class="tab" data-tab="apps">📦 Приложения</div>
+</div>
+<div class="content">
+<div class="section active" id="sec-wifi">
+<h2>📶 Настройки Wi-Fi</h2>
+<div class="row"><label>Название сети (SSID)</label><input type="text" id="wifiSsid" placeholder="HomeWiFi"></div>
+<div class="row"><label>Пароль</label><input type="password" id="wifiPass" placeholder="••••••••"><div style="font-size:12px;color:#555;font-weight:700;margin-top:6px" id="wifiHint">Введите название сети и пароль</div></div>
+<button class="save" id="saveWifi">💾 Сохранить и подключиться</button>
+</div>
+<div class="section" id="sec-account">
+<h2>👤 Аккаунт</h2>
+<div class="row"><label>Почта / Email</label><input type="email" id="accEmail" placeholder="user@example.com"></div>
+<div class="row"><label>Пароль</label><input type="password" id="accPass" placeholder="••••••••"><div style="font-size:12px;color:#555;font-weight:700;margin-top:6px" id="accHint">Войдите в аккаунт FanOS</div></div>
+<button class="save" id="saveAcc">💾 Сохранить аккаунт</button>
+</div>
+<div class="section" id="sec-wallpaper">
+<h2>🖼️ Обои рабочего стола</h2>
+<div class="row">
+<p style="font-size:13px;color:#555;font-weight:700;margin-bottom:12px">Выберите обои из файлов, сохранённых «Навсегда» в приложении «Файлы».</p>
+<div class="wp-grid" id="wpGrid"></div>
+<button class="btn-default-wp" id="btnDefaultWp">↩️ Сбросить на стандартные</button>
+</div>
+</div>
+<div class="section" id="sec-about">
+<h2>💻 О системе</h2>
+<div class="row" style="text-align:center;padding:24px"><div style="font-size:48px;margin-bottom:8px">🖥️</div><div style="font-weight:900;font-size:22px;margin-bottom:6px">FanOS 2.45.3</div><div style="font-size:13px;color:#555;font-weight:700;margin-bottom:18px">Операционная система FanOS+</div><div class="status-ok"><span class="dot"></span> Система активирована</div></div>
+<div class="row"><div class="info-line"><span class="k">Система</span><span class="v">FanOS 2.45.3</span></div><div class="info-line"><span class="k">Платформа</span><span class="v">Web / Browser</span></div><div class="info-line"><span class="k">Статус</span><span class="v" style="color:#00a651">✓ Активирована</span></div><div class="info-line"><span class="k">Разработчик</span><span class="v">FanOS Team</span></div></div>
+</div>
+<div class="section" id="sec-apps">
+<h2>📦 Установленные приложения</h2>
+<div class="upload-area">
+    <button class="btn-upload" id="btnUploadHtml">📂 Загрузить HTML</button>
+    <div style="font-size:12px;color:#555;font-weight:700;margin-top:10px">Выберите .html или .htm файлы для установки</div>
+</div>
+<div id="appsList"></div>
+</div>
+</div>
+<script>
+(function(){
+const tabs=document.querySelectorAll('.tab');const sections={wifi:document.getElementById('sec-wifi'),account:document.getElementById('sec-account'),wallpaper:document.getElementById('sec-wallpaper'),about:document.getElementById('sec-about'),apps:document.getElementById('sec-apps')};
+tabs.forEach(t=>{t.addEventListener('click',()=>{tabs.forEach(x=>x.classList.remove('active'));t.classList.add('active');Object.values(sections).forEach(s=>s.classList.remove('active'));sections[t.dataset.tab].classList.add('active');if(t.dataset.tab==='apps')renderApps();if(t.dataset.tab==='wallpaper')loadWallpapers()})});
+document.getElementById('saveWifi').addEventListener('click',()=>{const s=document.getElementById('wifiSsid').value.trim();const p=document.getElementById('wifiPass').value;if(!s){alert('Введите название сети');return}window.parent.postMessage({type:'save-wifi',ssid:s,password:p},'*');document.getElementById('wifiHint').textContent='✓ Подключено к «'+s+'»';document.getElementById('wifiHint').style.color='#00a651'});
+document.getElementById('saveAcc').addEventListener('click',()=>{const e=document.getElementById('accEmail').value.trim();const p=document.getElementById('accPass').value;if(!e){alert('Введите почту');return}window.parent.postMessage({type:'save-account',email:e,password:p},'*');document.getElementById('accHint').textContent='✓ Вы вошли как '+e;document.getElementById('accHint').style.color='#00a651'});
+document.getElementById('btnUploadHtml').addEventListener('click',()=>{window.parent.postMessage({type:'trigger-upload'},'*')});
+function loadWallpapers(){window.parent.postMessage({type:'get-wallpapers'},'*')}
+window.addEventListener('message',(e)=>{
+    if(e.data&&e.data.type==='apps-list'){renderAppsFrom(e.data.apps)}
+    if(e.data&&e.data.type==='wallpapers-list'){renderWallpapers(e.data.wallpapers,e.data.current)}
+    if(e.data&&e.data.type==='wifi-loaded'){document.getElementById('wifiSsid').value=e.data.ssid||'';document.getElementById('wifiPass').value=e.data.password||'';if(e.data.ssid){document.getElementById('wifiHint').textContent='✓ Подключено к «'+e.data.ssid+'»';document.getElementById('wifiHint').style.color='#00a651'}}
+    if(e.data&&e.data.type==='account-loaded'){document.getElementById('accEmail').value=e.data.email||'';document.getElementById('accPass').value=e.data.password||'';if(e.data.email){document.getElementById('accHint').textContent='✓ Вы вошли как '+e.data.email;document.getElementById('accHint').style.color='#00a651'}}
+});
+function renderWallpapers(wallpapers,current){
+    const grid=document.getElementById('wpGrid');
+    if(!wallpapers||wallpapers.length===0){
+        grid.innerHTML='<div class="wp-empty">Нет сохранённых картинок.<br>Откройте приложение «Файлы» и нажмите «Сохранить навсегда» на картинке, чтобы использовать её как обои.</div>';
+        return;
+    }
+    grid.innerHTML=wallpapers.map(w=>'<div class="wp-item" data-id="'+w.id+'"><img src="'+w.data+'">'+(w.id===current?'<div class="check">✓</div>':'')+'<div class="del" data-del="'+w.id+'">×</div></div>').join('');
+    grid.querySelectorAll('.wp-item').forEach(el=>{
+        el.addEventListener('click',(e)=>{
+            if(e.target.classList.contains('del')){
+                e.stopPropagation();
+                if(confirm('Удалить эти обои из списка?')){
+                    window.parent.postMessage({type:'delete-wallpaper',id:e.target.dataset.del},'*');
+                }
+                return;
+            }
+            window.parent.postMessage({type:'set-wallpaper',id:el.dataset.id},'*');
+            setTimeout(loadWallpapers,150);
+        });
+    });
+}
+document.getElementById('btnDefaultWp').addEventListener('click',()=>{
+    window.parent.postMessage({type:'set-wallpaper',id:null},'*');
+    setTimeout(loadWallpapers,150);
+});
+function renderApps(){window.parent.postMessage({type:'get-apps'},'*');document.getElementById('appsList').innerHTML='<div style="text-align:center;padding:20px;font-weight:700;color:#555">Загрузка...</div>'}
+function renderAppsFrom(apps){const list=document.getElementById('appsList');if(!apps||apps.length===0){list.innerHTML='<div style="text-align:center;padding:30px;font-weight:700;color:#555">Нет установленных приложений</div>';return}list.innerHTML=apps.map(a=>{const ico=a.iconImage?'<img src="'+a.iconImage+'">':a.icon;return '<div class="app-list-item"><div class="ico">'+ico+'</div><div class="info"><div class="nm">'+esc(a.name)+'</div><div class="sub">'+(a.fileName?esc(a.fileName):'Системное')+'</div></div><button data-open="'+a.id+'">Открыть</button><button class="danger" data-del="'+a.id+'">Удалить</button></div>'}).join('');list.querySelectorAll('[data-open]').forEach(b=>{b.addEventListener('click',()=>window.parent.postMessage({type:'open-app',id:b.dataset.open},'*'))});list.querySelectorAll('[data-del]').forEach(b=>{b.addEventListener('click',()=>{if(confirm('Удалить?')){window.parent.postMessage({type:'delete-app',id:b.dataset.del},'*');setTimeout(renderApps,200)}})})}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+window.parent.postMessage({type:'get-wifi'},'*');window.parent.postMessage({type:'get-account'},'*');
+})();
+<\/script></body></html>`;
+
+/* 2. ВРЕМЯ */
+const HTML_CLOCK = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#0a0a1a;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px}.clock{font-size:80px;font-weight:900;color:#ffcc00;text-shadow:0 0 30px rgba(255,204,0,.5);font-variant-numeric:tabular-nums;letter-spacing:4px}.date{font-size:20px;color:#aaa;font-weight:700}.label{font-size:14px;color:#666;font-weight:800;text-transform:uppercase;letter-spacing:2px}</style></head><body><div class="label">Текущее время</div><div class="clock" id="c">00:00:00</div><div class="date" id="d">—</div><script>function u(){const n=new Date();document.getElementById('c').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');document.getElementById('d').textContent=n.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}setInterval(u,1000);u();<\/script></body></html>`;
+
+/* 3. КАЛЬКУЛЯТОР */
+const HTML_CALC = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#1a1a2e;display:flex;align-items:center;justify-content:center;height:100vh}.calc{background:#000;border:4px solid #ffcc00;border-radius:8px;padding:16px;width:320px;box-shadow:0 0 40px rgba(255,204,0,.2)}.display{background:#1a1a2e;color:#fff;font-size:32px;font-weight:900;padding:16px;text-align:right;border-radius:4px;margin-bottom:12px;min-height:70px;word-break:break-all;border:2px solid #333}.buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}button{background:#333;color:#fff;border:none;padding:18px;font-size:20px;font-weight:900;border-radius:4px;cursor:pointer;transition:background .1s}button:hover{background:#555}button.op{background:#ff9900}button.op:hover{background:#ffaa33}button.eq{background:#ffcc00;color:#000}button.eq:hover{background:#ffdd44}button.clr{background:#ff5f57}</style></head><body><div class="calc"><div class="display" id="d">0</div><div class="buttons"><button class="clr" onclick="c()">C</button><button onclick="b('/')">/</button><button onclick="b('*')">×</button><button onclick="b('DEL')">⌫</button><button onclick="b('7')">7</button><button onclick="b('8')">8</button><button onclick="b('9')">9</button><button class="op" onclick="b('-')">−</button><button onclick="b('4')">4</button><button onclick="b('5')">5</button><button onclick="b('6')">6</button><button class="op" onclick="b('+')">+</button><button onclick="b('1')">1</button><button onclick="b('2')">2</button><button onclick="b('3')">3</button><button class="eq" onclick="e()">=</button><button onclick="b('0')">0</button><button onclick="b('.')">.</button><button style="grid-column:span 2" onclick="b('00')">00</button></div></div><script>
+let v='0', done=false;
+const d=document.getElementById('d');
+function b(x){
+    if(x==='DEL'){
+        v = v.length > 1 ? v.slice(0,-1) : '0';
+    } else if(/[+\-*/]/.test(x)){
+        if(done) done = false;
+        if(/[+\-*/]/.test(v.slice(-1))){
+            v = v.slice(0,-1) + x;
+        } else {
+            v += x;
+        }
+    } else {
+        if(done){
+            v = x;
+            done = false;
+        } else {
+            if(v === '0' && x !== '.') v = x;
+            else v += x;
+        }
+    }
+    d.textContent = v;
+}
+function c(){ v='0'; done=false; d.textContent='0'; }
+function e(){
+    try {
+        let expr = v.replace(/×/g,'*').replace(/−/g,'-');
+        let r = eval(expr);
+        if(typeof r === 'number' && isFinite(r)){
+            r = Number(r.toFixed(10));
+            d.textContent = r;
+            v = String(r);
+        } else {
+            d.textContent = 'Ошибка';
+            v = '0';
+        }
+    } catch {
+        d.textContent = 'Ошибка';
+        v = '0';
+    }
+    done = true;
+}
+document.addEventListener('keydown', (ev) => {
+    if(/[0-9+\-*/.]/.test(ev.key)) b(ev.key);
+    else if(ev.key === 'Enter') e();
+    else if(ev.key === 'Backspace') b('DEL');
+    else if(ev.key === 'Escape') c();
+});
+<\/script></body></html>`;
+
+/* 4. ТАЙМЕР */
+const HTML_TIMER = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#0a0a1a;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:24px}.t{font-size:72px;font-weight:900;color:#00ff88;text-shadow:0 0 30px rgba(0,255,136,.5);font-variant-numeric:tabular-nums;letter-spacing:4px;font-family:monospace}.input-group{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}.input-group label{font-weight:900;color:#aaa;font-size:14px;text-transform:uppercase}.input-group input{width:80px;padding:12px;font-size:20px;font-weight:900;text-align:center;border:3px solid #ffcc00;border-radius:6px;background:#1a1a2e;color:#ffcc00;outline:none}.btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}button{padding:16px 36px;font-size:18px;font-weight:900;border:3px solid #fff;background:transparent;color:#fff;border-radius:6px;cursor:pointer;transition:.15s;text-transform:uppercase;min-width:130px}button:hover{background:rgba(255,255,255,.1)}button.start{background:#00c853;border-color:#00c853}button.start:hover{background:#00e676}button.pause{background:#ff9900;border-color:#ff9900}button.pause:hover{background:#ffaa33}button.reset{background:#ff5f57;border-color:#ff5f57}button.reset:hover{background:#ff7770}button:disabled{opacity:.4;cursor:not-allowed}.lbl{font-size:14px;color:#666;font-weight:800;text-transform:uppercase;letter-spacing:2px}.finished{animation:blink 1s infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}</style></head><body><div class="lbl">Таймер обратного отсчёта</div><div class="t" id="t">00:00</div><div class="input-group"><label>Мин:</label><input type="number" id="min" value="5" min="0" max="99"><label>Сек:</label><input type="number" id="sec" value="0" min="0" max="59"></div><div class="btns"><button class="start" id="b1" onclick="s()">Старт</button><button class="pause" id="b2" onclick="p()" disabled>Пауза</button><button class="reset" onclick="r()">Сброс</button></div><script>
+let totalSec=300, left=300, timer=null, running=false;
+function fmt(s){const m=Math.floor(s/60);const ss=s%60;return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')}
+function upd(){document.getElementById('t').textContent=fmt(left);if(left===0){document.getElementById('t').classList.add('finished')}else{document.getElementById('t').classList.remove('finished')}}
+function readInputs(){let m=parseInt(document.getElementById('min').value)||0;let s=parseInt(document.getElementById('sec').value)||0;if(m<0)m=0;if(s<0)s=0;if(s>59)s=59;totalSec=m*60+s;left=totalSec;upd()}
+document.getElementById('min').addEventListener('input',()=>{if(!running)readInputs()});
+document.getElementById('sec').addEventListener('input',()=>{if(!running)readInputs()});
+function s(){
+    if(running||left<=0)return;
+    running=true;
+    document.getElementById('b1').disabled=true;
+    document.getElementById('b2').disabled=false;
+    timer=setInterval(()=>{
+        left--;
+        upd();
+        if(left<=0){
+            clearInterval(timer);
+            running=false;
+            document.getElementById('b1').disabled=false;
+            document.getElementById('b2').disabled=true;
+            try{
+                const ctx=new (window.AudioContext||window.webkitAudioContext)();
+                const osc=ctx.createOscillator();
+                const gain=ctx.createGain();
+                osc.connect(gain);gain.connect(ctx.destination);
+                osc.frequency.value=880;gain.gain.value=0.3;
+                osc.start();osc.stop(ctx.currentTime+0.5);
+                setTimeout(()=>{const o2=ctx.createOscillator();const g2=ctx.createGain();o2.connect(g2);g2.connect(ctx.destination);o2.frequency.value=1200;g2.gain.value=0.3;o2.start();o2.stop(ctx.currentTime+0.5)},600);
+            }catch(e){}
+        }
+    },1000);
+}
+function p(){if(!running)return;running=false;clearInterval(timer);document.getElementById('b1').disabled=false;document.getElementById('b2').disabled=true}
+function r(){p();readInputs()}
+readInputs();
+<\/script></body></html>`;
+
+/* 5. PAINT */
+const HTML_PAINT = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#1a1a2e;display:flex;flex-direction:column;height:100vh;overflow:hidden}.toolbar{background:#000;padding:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:3px solid #ffcc00}.toolbar input[type=color]{width:40px;height:40px;border:2px solid #fff;border-radius:4px;cursor:pointer;background:none;padding:0}.toolbar input[type=range]{width:100px;cursor:pointer}.toolbar span{color:#fff;font-weight:900;font-size:13px}.toolbar button{background:#ffcc00;border:none;padding:10px 16px;font-weight:900;font-size:13px;border-radius:4px;cursor:pointer}.toolbar button:hover{background:#ffdd44}.toolbar button.red{background:#ff5f57;color:#fff}.toolbar button.red:hover{background:#ff7770}canvas{flex:1;background:#fff;cursor:crosshair;display:block;touch-action:none}</style></head><body><div class="toolbar"><span>Цвет:</span><input type="color" id="color" value="#000000"><span>Толщина:</span><input type="range" id="size" min="1" max="50" value="4"><span id="sizelbl">4</span><button onclick="clr()" class="red">Очистить</button><button onclick="save()">💾 Скачать PNG</button></div><canvas id="c"></canvas><script>const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');let drawing=false;function resize(){const d=canvas.parentElement.getBoundingClientRect();canvas.width=d.width;canvas.height=d.height-60;ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height)}window.addEventListener('resize',resize);setTimeout(resize,100);canvas.addEventListener('mousedown',e=>{drawing=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY)});canvas.addEventListener('mousemove',e=>{if(!drawing)return;ctx.lineTo(e.offsetX,e.offsetY);ctx.strokeStyle=document.getElementById('color').value;ctx.lineWidth=document.getElementById('size').value;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke()});canvas.addEventListener('mouseup',()=>drawing=false);canvas.addEventListener('mouseleave',()=>drawing=false);canvas.addEventListener('touchstart',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();const t=e.touches[0];drawing=true;ctx.beginPath();ctx.moveTo(t.clientX-r.left,t.clientY-r.top)},{passive:false});canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const r=canvas.getBoundingClientRect();const t=e.touches[0];ctx.lineTo(t.clientX-r.left,t.clientY-r.top);ctx.strokeStyle=document.getElementById('color').value;ctx.lineWidth=document.getElementById('size').value;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke()},{passive:false});canvas.addEventListener('touchend',()=>drawing=false);document.getElementById('size').addEventListener('input',e=>document.getElementById('sizelbl').textContent=e.target.value);function clr(){ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height)}function save(){const a=document.createElement('a');a.download='drawing.png';a.href=canvas.toDataURL();a.click()}<\/script></body></html>`;
+
+/* 6. ФАЙЛОВЫЙ МЕНЕДЖЕР */
+const HTML_FILES = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#f0f0f5;color:#000;height:100vh;display:flex;flex-direction:column}.h{background:#000;color:#fff;padding:14px 20px;font-weight:900;font-size:18px;border-bottom:4px solid #000;display:flex;justify-content:space-between;align-items:center}.h .disk{font-size:12px;background:#ffcc00;color:#000;padding:4px 12px;border-radius:12px;font-weight:900}.toolbar{padding:12px 20px;background:#e8e8f0;border-bottom:3px solid #000;display:flex;gap:10px;flex-wrap:wrap}.toolbar button{padding:10px 18px;background:#ffcc00;border:3px solid #000;border-radius:3px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:2px 2px 0 #000}.toolbar button:hover{background:#ffaa00}.toolbar button:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #000}.storage-bar{padding:10px 20px;background:#fff;border-bottom:3px solid #000;font-size:13px;font-weight:900}.progress{height:16px;background:#e0e0e0;border:3px solid #000;border-radius:3px;margin-top:6px;overflow:hidden}.progress .fill{height:100%;background:linear-gradient(90deg,#00c853,#ffcc00);transition:width .3s;width:0%}.files{flex:1;overflow-y:auto;padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;align-content:start}.file{background:#fff;border:3px solid #000;border-radius:4px;padding:14px 10px;text-align:center;cursor:pointer;box-shadow:3px 3px 0 #000;transition:transform .1s;position:relative}.file:hover{transform:translateY(-2px);background:#fffbe0}.file .ico{font-size:36px;margin-bottom:6px}.file .nm{font-size:11px;font-weight:800;word-break:break-all;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.file .sz{font-size:10px;color:#666;font-weight:700;margin-top:4px}.file .saved-badge{position:absolute;top:4px;left:4px;background:#00c853;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:8px;border:2px solid #000}.file .del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#ff5f57;color:#fff;border:2px solid #000;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center}.file:hover .del{display:flex}.empty{grid-column:1/-1;text-align:center;padding:60px 20px;font-weight:700;color:#666;font-size:15px}.preview{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;flex-direction:column;gap:16px}.preview.open{display:flex}.preview img{max-width:90vw;max-height:70vh;border:4px solid #ffcc00;border-radius:4px}.preview video{max-width:90vw;max-height:70vh;border:4px solid #ffcc00}.preview audio{width:80vw;max-width:500px}.preview iframe{width:90vw;height:70vh;border:4px solid #ffcc00;background:#fff;border-radius:4px}.preview .cls{position:absolute;top:20px;right:20px;width:44px;height:44px;background:#ff5f57;color:#fff;border:3px solid #fff;border-radius:50%;font-size:22px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}.preview .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}.preview .actions button{padding:12px 20px;background:#ffcc00;border:3px solid #000;border-radius:3px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:2px 2px 0 #000}.preview .actions button:hover{background:#ffaa00}.preview .actions button.green{background:#00c853;color:#fff}.preview .actions button.green:hover{background:#00e676}.preview .actions button:disabled{background:#999;cursor:not-allowed}.preview .actions button:disabled:hover{background:#999}.warn{font-size:12px;color:#ffaa00;font-weight:900;background:rgba(0,0,0,.7);padding:6px 12px;border-radius:20px}</style></head><body><div class="h">📁 Файловый менеджер <span class="disk" id="disk">0 / 120 ГБ</span></div><div class="toolbar"><button id="upBtn">📤 Загрузить файлы с ПК</button><button id="clrBtn">🗑 Очистить всё</button></div><div class="storage-bar">Использовано: <span id="used">0 B</span> из 120 ГБ<div class="progress"><div class="fill" id="fill"></div></div></div><div class="files" id="files"></div><div class="preview" id="prev"><div class="cls" id="cls">×</div><div id="prevBody"></div><div class="actions" id="prevActions"></div></div><input type="file" id="inp" multiple style="display:none"><script>
+let files=[];const maxBytes=120*1024*1024*1024;
+const MAX_SAVE_SIZE=20*1024*1024;
+function fmt(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';if(b<1073741824)return (b/1048576).toFixed(1)+' MB';return (b/1073741824).toFixed(2)+' GB'}
+function ext(n){return n.split('.').pop().toLowerCase()}
+function ico(n){const e=ext(n);if(['jpg','jpeg','png','gif','webp','svg','bmp'].includes(e))return '🖼️';if(['mp4','webm','ogg','mov','avi','mkv'].includes(e))return '🎬';if(['mp3','wav','ogg','flac','m4a'].includes(e))return '🎵';if(['html','htm'].includes(e))return '📄';if(['pdf'].includes(e))return '📕';if(['zip','rar','7z'].includes(e))return '📦';if(['txt','md'].includes(e))return '📝';return '📄'}
+function render(){const list=document.getElementById('files');const used=files.reduce((s,f)=>s+f.size,0);document.getElementById('used').textContent=fmt(used);document.getElementById('fill').style.width=(used/maxBytes*100)+'%';document.getElementById('disk').textContent=files.length+' файлов / 120 ГБ';if(files.length===0){list.innerHTML='<div class="empty">📁 Папка пуста<br><br>Нажми «Загрузить файлы с ПК»</div>';return}list.innerHTML=files.map((f,i)=>'<div class="file" data-i="'+i+'"><div class="del" data-del="'+i+'">×</div>'+(f.saved?'<div class="saved-badge">✓ Сохранён</div>':'')+'<div class="ico">'+ico(f.name)+'</div><div class="nm">'+f.name+'</div><div class="sz">'+fmt(f.size)+'</div></div>').join('');list.querySelectorAll('.file').forEach(el=>{el.addEventListener('click',(e)=>{if(e.target.classList.contains('del')){e.stopPropagation();if(confirm('Удалить файл?')){files.splice(parseInt(e.target.dataset.del),1);render();return}return}showPreview(files[parseInt(el.dataset.i)])})})}
+function showPreview(f){const p=document.getElementById('prev');const body=document.getElementById('prevBody');const actions=document.getElementById('prevActions');const e=ext(f.name);
+    const isImage=['jpg','jpeg','png','gif','webp','svg','bmp'].includes(e);
+    if(isImage){body.innerHTML='<img src="'+f.url+'">'}
+    else if(['mp4','webm','ogg','mov','avi','mkv'].includes(e)){body.innerHTML='<video src="'+f.url+'" controls autoplay></video>'}
+    else if(['mp3','wav','ogg','flac','m4a'].includes(e)){body.innerHTML='<audio src="'+f.url+'" controls autoplay></audio>'}
+    else if(['html','htm'].includes(e)){body.innerHTML='<iframe src="'+f.url+'" sandbox="allow-scripts allow-same-origin"></iframe>'}
+    else{body.innerHTML='<div style="background:#fff;border:4px solid #ffcc00;padding:40px;font-weight:900;border-radius:4px;color:#000">Файл: '+f.name+'<br><br>Предпросмотр недоступен</div>'}
+    let html='';
+    if(isImage){
+        if(f.saved){
+            html+='<button class="green" disabled>✓ Сохранён навсегда</button>';
+        } else {
+            if(f.size > MAX_SAVE_SIZE){
+                html+='<button disabled title="Файл больше 20 МБ">⚠️ Слишком большой (макс. 20 МБ)</button>';
+            } else {
+                html+='<button class="green" data-save="'+files.indexOf(f)+'">💾 Сохранить навсегда</button>';
+            }
+        }
+    }
+    html+='<button data-download="'+files.indexOf(f)+'">⬇️ Скачать</button>';
+    html+='<button data-close="1">Закрыть</button>';
+    actions.innerHTML=html;
+    actions.querySelectorAll('[data-save]').forEach(b=>{b.addEventListener('click',()=>{
+        saveForever(parseInt(b.dataset.save));
+        b.disabled=true;b.textContent='✓ Сохранён навсегда';b.classList.add('green');
+    })});
+    actions.querySelectorAll('[data-download]').forEach(b=>{b.addEventListener('click',()=>{
+        const ff=files[parseInt(b.dataset.download)];
+        const a=document.createElement('a');a.href=ff.url;a.download=ff.name;a.click();
+    })});
+    actions.querySelectorAll('[data-close]').forEach(b=>{b.addEventListener('click',()=>{p.classList.remove('open');body.innerHTML='';actions.innerHTML=''})});
+    p.classList.add('open');
+}
+function saveForever(idx){
+    const f=files[idx];if(!f)return;
+    if(f.size>MAX_SAVE_SIZE){alert('Файл больше 20 МБ. Нельзя сохранить навсегда.');return}
+    if(!['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext(f.name))){alert('Сохранять навсегда можно только картинки (для обоев).');return}
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+        window.parent.postMessage({type:'save-forever',name:f.name,data:ev.target.result},'*');
+        f.saved=true;
+        render();
+        alert('✓ Обои сохранены! Теперь они доступны в Настройках → Обои.');
+    };
+    reader.readAsDataURL(f.file);
+}
+document.getElementById('cls').addEventListener('click',()=>{const p=document.getElementById('prev');p.classList.remove('open');document.getElementById('prevBody').innerHTML='';document.getElementById('prevActions').innerHTML=''});
+document.getElementById('upBtn').addEventListener('click',()=>document.getElementById('inp').click());
+document.getElementById('clrBtn').addEventListener('click',()=>{if(confirm('Удалить все файлы?')){files.forEach(f=>URL.revokeObjectURL(f.url));files=[];render()}});
+document.getElementById('inp').addEventListener('change',(e)=>{const fs=Array.from(e.target.files);fs.forEach(f=>{if(files.reduce((s,x)=>s+x.size,0)+f.size>maxBytes){alert('Диск переполнен (120 ГБ)');return}files.push({name:f.name,size:f.size,url:URL.createObjectURL(f),type:f.type,file:f,saved:false})});render();e.target.value=''});
+render();
+<\/script></body></html>`;
+
+/* 7. ВИДЕО ПЛЕЕР */
+const HTML_VIDEO = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#000;color:#fff;height:100vh;display:flex;flex-direction:column}.h{background:#1a1a2e;padding:14px 20px;font-weight:900;font-size:18px;border-bottom:3px solid #ffcc00;color:#ffcc00}.btn{padding:14px 28px;background:#ffcc00;color:#000;border:none;font-weight:900;font-size:15px;cursor:pointer;margin:20px;border-radius:4px}.btn:hover{background:#ffdd44}.video-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}.video-wrap video{max-width:100%;max-height:100%;border:3px solid #ffcc00;border-radius:4px}.info{text-align:center;padding:0 20px 20px;font-size:13px;color:#aaa;font-weight:700}</style></head><body><div class="h">🎬 Видео плеер</div><div style="text-align:center"><button class="btn" id="b">📂 Выбрать видео с ПК</button><input type="file" id="f" accept="video/*" style="display:none"></div><div class="video-wrap"><video id="v" controls></video></div><div class="info" id="i">Файл не выбран</div><script>document.getElementById('b').addEventListener('click',()=>document.getElementById('f').click());document.getElementById('f').addEventListener('change',(e)=>{const file=e.target.files[0];if(!file)return;const v=document.getElementById('v');v.src=URL.createObjectURL(file);v.play();document.getElementById('i').textContent=file.name+' • '+(file.size/1024/1024).toFixed(1)+' MB'});<\/script></body></html>`;
+
+/* 8. АУДИО ПЛЕЕР */
+const HTML_AUDIO = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:linear-gradient(135deg,#1a1a2e,#0a0a1a);color:#fff;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:20px}.h{font-size:28px;font-weight:900;color:#ffcc00;text-shadow:0 0 20px rgba(255,204,0,.4)}.btn{padding:16px 32px;background:#ffcc00;color:#000;border:none;font-weight:900;font-size:16px;cursor:pointer;border-radius:6px}.btn:hover{background:#ffdd44}audio{width:100%;max-width:500px;border:3px solid #ffcc00;border-radius:40px;padding:4px;background:#1a1a2e}.info{font-size:14px;color:#aaa;font-weight:700;text-align:center}.ico{font-size:80px;margin-bottom:-10px}</style></head><body><div class="ico">🎵</div><div class="h">Аудио плеер</div><button class="btn" id="b">📂 Выбрать аудио с ПК</button><input type="file" id="f" accept="audio/*" style="display:none"><audio id="a" controls></audio><div class="info" id="i">Файл не выбран</div><script>document.getElementById('b').addEventListener('click',()=>document.getElementById('f').click());document.getElementById('f').addEventListener('change',(e)=>{const file=e.target.files[0];if(!file)return;const a=document.getElementById('a');a.src=URL.createObjectURL(file);a.play();document.getElementById('i').textContent=file.name+' • '+(file.size/1024/1024).toFixed(1)+' MB'});<\/script></body></html>`;
+
+/* ============================================================
+   РЕНДЕР ИКОНОК
+   ============================================================ */
+const desktop = document.getElementById('desktop');
+const iconsContainer = document.getElementById('iconsContainer');
+const appWindow = document.getElementById('appWindow');
+const appIframe = document.getElementById('appIframe');
+const windowTitle = document.getElementById('windowTitle');
+const winCloseBtn = document.getElementById('winCloseBtn');
+const fileInput = document.getElementById('fileInput');
+const iconInput = document.getElementById('iconInput');
+
+const modalOverlay = document.getElementById('modalOverlay');
+const modalFileName = document.getElementById('modalFileName');
+const modalFileSize = document.getElementById('modalFileSize');
+const progressBar = document.getElementById('progressBar');
+const progressTime = document.getElementById('progressTime');
+const btnCancel = document.getElementById('btnCancel');
+const btnInstall = document.getElementById('btnInstall');
+
+const ctxMenu = document.getElementById('ctxMenu');
+const ctxOpen = document.getElementById('ctxOpen');
+const ctxChangeIcon = document.getElementById('ctxChangeIcon');
+const ctxDelete = document.getElementById('ctxDelete');
+
+const ICON_COLORS = [
+    {bg:'linear-gradient(145deg,#d80000,#900000)'},{bg:'linear-gradient(145deg,#00a651,#008a43)'},
+    {bg:'linear-gradient(145deg,#1c8cf9,#0d6efd)'},{bg:'linear-gradient(145deg,#ffd21e,#efb900)'},
+    {bg:'linear-gradient(145deg,#9b59b6,#6c3483)'},{bg:'linear-gradient(145deg,#e67e22,#ba4a00)'},
+    {bg:'linear-gradient(145deg,#008080,#005a5a)'},{bg:'linear-gradient(145deg,#c0392b,#7b241c)'}
+];
+const ICON_EMOJIS = ['📄','📦','🎨','🎮','🎵','📊','🧩','💡','🔮','🚀'];
+
+function renderIcons() {
+    iconsContainer.innerHTML = '';
+    if (apps.length === 0) {
+        const hint = document.createElement('div');
+        hint.className = 'empty-hint';
+        hint.innerHTML = '<span class="big">🖥️</span>Рабочий стол пуст<br>Загрузи HTML в <b>Настройках → Приложения</b>';
+        iconsContainer.appendChild(hint);
+        return;
+    }
+    apps.forEach(app => {
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'app-icon';
+        iconDiv.dataset.id = app.id;
+        iconDiv.style.left = app.x + 'px';
+        iconDiv.style.top = app.y + 'px';
+        iconDiv.title = app.name;
+
+        const visual = document.createElement('div');
+        visual.className = 'icon-visual';
+        if (app.iconImage) visual.innerHTML = '<img src="' + app.iconImage + '">';
+        else { visual.textContent = app.icon; if (app.bg) visual.style.background = app.bg; }
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'icon-delete';
+        deleteBtn.textContent = '×';
+        deleteBtn.title = 'Удалить';
+        deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); removeApp(app.id); });
+
+        const label = document.createElement('div');
+        label.className = 'app-label';
+        label.textContent = app.name;
+
+        iconDiv.appendChild(visual);
+        iconDiv.appendChild(deleteBtn);
+        iconDiv.appendChild(label);
+
+        makeDraggable(iconDiv, app);
+
+        let clickTimer = null;
+        iconDiv.addEventListener('click', (e) => {
+            if (e.target === deleteBtn) return;
+            if (iconDiv.dataset.dragged === '1') { iconDiv.dataset.dragged = '0'; return; }
+            if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; openApp(app); }
+            else { clickTimer = setTimeout(() => { clickTimer = null; }, 250); }
+        });
+        iconDiv.addEventListener('dblclick', () => {
+            if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+            openApp(app);
+        });
+
+        iconDiv.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            showCtxMenu(e.clientX, e.clientY, app);
+        });
+
+        iconsContainer.appendChild(iconDiv);
+    });
+}
+
+/* ============================================================
+   КОНТЕКСТНОЕ МЕНЮ
+   ============================================================ */
+function showCtxMenu(x, y, app) {
+    ctxTargetAppId = app.id;
+    ctxMenu.classList.add('open');
+    const w = ctxMenu.offsetWidth, h = ctxMenu.offsetHeight;
+    ctxMenu.style.left = Math.min(x, window.innerWidth - w - 8) + 'px';
+    ctxMenu.style.top = Math.min(y, window.innerHeight - h - 8) + 'px';
+}
+function hideCtxMenu() { ctxMenu.classList.remove('open'); ctxTargetAppId = null; }
+
+document.addEventListener('click', (e) => { if (!ctxMenu.contains(e.target)) hideCtxMenu(); });
+document.addEventListener('contextmenu', (e) => { if (!e.target.closest('.app-icon')) hideCtxMenu(); });
+
+ctxOpen.addEventListener('click', () => {
+    const app = apps.find(a => a.id === ctxTargetAppId);
+    hideCtxMenu(); if (app) openApp(app);
+});
+ctxChangeIcon.addEventListener('click', () => {
+    const app = apps.find(a => a.id === ctxTargetAppId);
+    hideCtxMenu(); if (!app) return;
+    iconInput.onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => { app.iconImage = ev.target.result; renderIcons(); };
+        reader.readAsDataURL(file); iconInput.value = '';
+    };
+    iconInput.click();
+});
+ctxDelete.addEventListener('click', () => {
+    const id = ctxTargetAppId; hideCtxMenu(); if (id) removeApp(id);
+});
+
+/* ============================================================
+   ПЕРЕТАСКИВАНИЕ
+   ============================================================ */
+function makeDraggable(el, app) {
+    let startX=0,startY=0,origX=0,origY=0,dragging=false,moved=false;
+    function down(cx,cy){dragging=true;moved=false;startX=cx;startY=cy;origX=app.x;origY=app.y;el.classList.add('dragging')}
+    function move(cx,cy){if(!dragging)return;const dx=cx-startX,dy=cy-startY;if(Math.abs(dx)>3||Math.abs(dy)>3)moved=true;let nx=origX+dx,ny=origY+dy;const w=desktop.clientWidth,h=desktop.clientHeight;nx=Math.max(0,Math.min(nx,w-80));ny=Math.max(0,Math.min(ny,h-90));app.x=nx;app.y=ny;el.style.left=nx+'px';el.style.top=ny+'px'}
+    function up(){if(!dragging)return;dragging=false;el.classList.remove('dragging');if(moved)el.dataset.dragged='1'}
+    el.addEventListener('mousedown',(e)=>{if(e.button!==0||e.target.classList.contains('icon-delete'))return;e.preventDefault();down(e.clientX,e.clientY)});
+    document.addEventListener('mousemove',(e)=>move(e.clientX,e.clientY));
+    document.addEventListener('mouseup',up);
+    el.addEventListener('touchstart',(e)=>{if(e.target.classList.contains('icon-delete'))return;const t=e.touches[0];down(t.clientX,t.clientY)},{passive:true});
+    el.addEventListener('touchmove',(e)=>{if(!dragging)return;e.preventDefault();const t=e.touches[0];move(t.clientX,t.clientY)},{passive:false});
+    el.addEventListener('touchend',up);
+    el.addEventListener('touchcancel',up);
+}
+
+/* ============================================================
+   ПОЗИЦИЯ
+   ============================================================ */
+function getNextPosition() {
+    const w = desktop.clientWidth || 800;
+    const h = desktop.clientHeight || 600;
+    const cols = Math.max(1, Math.floor((w - 20) / 90));
+    const col = apps.length % cols;
+    const row = Math.floor(apps.length / cols);
+    return { x: Math.min(16 + col * 90, w - 90), y: Math.min(16 + row * 100, h - 110) };
+}
+
+/* ============================================================
+   ЗАГРУЗКА HTML
+   ============================================================ */
+window.addEventListener('message', (e) => {
+    if (!e.data || !e.data.type) return;
+    if (e.data.type === 'trigger-upload') {
+        fileInput.click();
+    }
+    if (e.data.type === 'save-forever') {
+        try {
+            const list = JSON.parse(localStorage.getItem('fanos_saved_wallpapers') || '[]');
+            const newItem = { id: 'wp-' + Date.now(), name: e.data.name, data: e.data.data };
+            list.push(newItem);
+            localStorage.setItem('fanos_saved_wallpapers', JSON.stringify(list));
+            e.source.postMessage({type:'save-forever-ok'},'*');
+        } catch(err) {
+            alert('Не удалось сохранить обои: память браузера переполнена');
+        }
+    }
+    if (e.data.type === 'get-wallpapers') {
+        let list = [];
+        try { list = JSON.parse(localStorage.getItem('fanos_saved_wallpapers') || '[]'); } catch(err) {}
+        let current = null;
+        try { current = localStorage.getItem(savedWallpaperIdKey); } catch(err) {}
+        e.source.postMessage({type:'wallpapers-list', wallpapers: list, current: current},'*');
+    }
+    if (e.data.type === 'set-wallpaper') {
+        if (!e.data.id) {
+            wallpaperEl.classList.add('default-wp');
+            wallpaperEl.classList.remove('custom-wp');
+            wallpaperEl.style.background = '';
+            try { localStorage.removeItem(savedWallpaperKey); localStorage.removeItem(savedWallpaperIdKey); } catch(err) {}
+        } else {
+            let list = [];
+            try { list = JSON.parse(localStorage.getItem('fanos_saved_wallpapers') || '[]'); } catch(err) {}
+            const wp = list.find(w => w.id === e.data.id);
+            if (wp) {
+                wallpaperEl.classList.remove('default-wp');
+                wallpaperEl.classList.add('custom-wp');
+                wallpaperEl.style.background = 'url(' + wp.data + ') center/cover no-repeat';
+                try { localStorage.setItem(savedWallpaperKey, wp.data); localStorage.setItem(savedWallpaperIdKey, wp.id); } catch(err) {}
+            }
+        }
+    }
+    if (e.data.type === 'delete-wallpaper') {
+        try {
+            let list = JSON.parse(localStorage.getItem('fanos_saved_wallpapers') || '[]');
+            list = list.filter(w => w.id !== e.data.id);
+            localStorage.setItem('fanos_saved_wallpapers', JSON.stringify(list));
+            e.source.postMessage({type:'wallpapers-list', wallpapers: list, current: localStorage.getItem(savedWallpaperIdKey)},'*');
+        } catch(err) {}
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const htmlFiles = files.filter(f => /\.html?$/i.test(f.name));
+    if (htmlFiles.length === 0) { alert('Нужны .html или .htm'); fileInput.value = ''; return; }
+    processFilesQueue(htmlFiles, 0);
+    fileInput.value = '';
+});
+
+let currentInstall = null;
+function processFilesQueue(files, index) {
+    if (index >= files.length) return;
+    const file = files[index];
+    const reader = new FileReader();
+    reader.onload = (ev) => showInstallModal(file.name, ev.target.result, file.size, () => processFilesQueue(files, index + 1));
+    reader.onerror = () => { alert('Ошибка: ' + file.name); processFilesQueue(files, index + 1); };
+    reader.readAsText(file, 'UTF-8');
+}
+
+function showInstallModal(fileName, html, fileSize, onDone) {
+    if (currentInstall) currentInstall.cancel();
+    modalFileName.textContent = fileName;
+    modalFileSize.textContent = (fileSize / 1024).toFixed(1) + ' KB';
+    progressBar.style.width = '0%';
+    progressTime.textContent = '5 сек';
+    btnInstall.disabled = true;
+    btnInstall.textContent = 'Установить';
+    modalOverlay.classList.add('open');
+    const total = 5000, start = Date.now();
+    let tickTimer = null, finished = false;
+    const ctx = { cancel: function() { if (finished) return; finished = true; clearInterval(tickTimer); clearTimeout(ctx.installTimeout); modalOverlay.classList.remove('open'); currentInstall = null; if (onDone) onDone(); } };
+    tickTimer = setInterval(() => {
+        const elapsed = Date.now() - start;
+        const p = Math.min(100, (elapsed / total) * 100);
+        progressBar.style.width = p + '%';
+        progressTime.textContent = Math.max(0, Math.ceil((total - elapsed) / 1000)) + ' сек';
+        if (p >= 100) { clearInterval(tickTimer); progressTime.textContent = 'Готово'; btnInstall.disabled = false; }
+    }, 100);
+    ctx.installTimeout = setTimeout(() => { if (!finished) doInstall(); }, total);
+    function doInstall() {
+        if (finished) return; finished = true;
+        clearInterval(tickTimer); clearTimeout(ctx.installTimeout);
+        btnInstall.disabled = true; btnInstall.textContent = 'Установка...';
+        setTimeout(() => { addApp(fileName, html); modalOverlay.classList.remove('open'); currentInstall = null; if (onDone) onDone(); }, 300);
+    }
+    btnInstall.onclick = doInstall;
+    btnCancel.onclick = ctx.cancel;
+    currentInstall = ctx;
+}
+
+/* ============================================================
+   ДОБАВЛЕНИЕ / УДАЛЕНИЕ
+   ============================================================ */
+function addApp(fileName, html) {
+    appCounter++;
+    const c = ICON_COLORS[(appCounter - 1) % ICON_COLORS.length];
+    const emoji = ICON_EMOJIS[(appCounter - 1) % ICON_EMOJIS.length];
+    const cleanName = fileName.replace(/\.html?$/i, '');
+    const pos = getNextPosition();
+    apps.push({ id: 'app-' + appCounter + '-' + Date.now(), name: cleanName, icon: emoji, bg: c.bg, border: '#000', html: html, fileName: fileName, x: pos.x, y: pos.y, iconImage: null, isSystem: false });
+    renderIcons();
+}
+
+function removeApp(id) {
+    const app = apps.find(a => a.id === id);
+    if (!app) return;
+    if (app.isSystem) { alert('Системное приложение нельзя удалить.'); return; }
+    if (!confirm('Удалить «' + app.name + '»?')) return;
+    apps = apps.filter(a => a.id !== id);
+    renderIcons();
+}
+
+/* ============================================================
+   ОТКРЫТИЕ / ЗАКРЫТИЕ
+   ============================================================ */
+function openApp(app) {
+    windowTitle.textContent = app.name;
+    appIframe.removeAttribute('src');
+    appIframe.srcdoc = app.html;
+    appWindow.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    if (app.isSettings) {
+        setTimeout(() => {
+            appIframe.contentWindow.postMessage({ type: 'wifi-loaded', ssid: wifiConfig.ssid, password: wifiConfig.password }, '*');
+            appIframe.contentWindow.postMessage({ type: 'account-loaded', email: accountConfig.email, password: accountConfig.password }, '*');
+        }, 200);
+    }
+}
+
+function closeApp() {
+    appWindow.classList.remove('active');
+    appIframe.srcdoc = '';
+    appIframe.src = 'about:blank';
+    document.body.style.overflow = '';
+}
+winCloseBtn.addEventListener('click', closeApp);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && appWindow.classList.contains('active')) closeApp(); });
+
+/* ============================================================
+   ОБМЕН СООБЩЕНИЯМИ (основной)
+   ============================================================ */
+window.addEventListener('message', (e) => {
+    if (!e.data || !e.data.type) return;
+    switch (e.data.type) {
+        case 'save-wifi': wifiConfig.ssid = e.data.ssid; wifiConfig.password = e.data.password; break;
+        case 'get-wifi': e.source.postMessage({ type: 'wifi-loaded', ssid: wifiConfig.ssid, password: wifiConfig.password }, '*'); break;
+        case 'save-account': accountConfig.email = e.data.email; accountConfig.password = e.data.password; break;
+        case 'get-account': e.source.postMessage({ type: 'account-loaded', email: accountConfig.email, password: accountConfig.password }, '*'); break;
+        case 'get-apps':
+            e.source.postMessage({ type: 'apps-list', apps: apps.map(a => ({ id: a.id, name: a.name, icon: a.icon, iconImage: a.iconImage, fileName: a.fileName, isSystem: a.isSystem })) }, '*');
+            break;
+        case 'open-app': { const a = apps.find(x => x.id === e.data.id); if (a) openApp(a); break; }
+        case 'delete-app': {
+            const a = apps.find(x => x.id === e.data.id);
+            if (a && !a.isSystem) { apps = apps.filter(x => x.id !== e.data.id); renderIcons(); }
+            break;
+        }
+    }
+});
+
+/* ============================================================
+   СИСТЕМНЫЕ ПРИЛОЖЕНИЯ
+   ============================================================ */
+function addSystemApps() {
+    const sys = [
+        { id: 'sys-settings', name: 'Настройки', icon: '⚙️', bg: 'linear-gradient(145deg,#8e9eab,#5a6b7a)', html: HTML_SETTINGS },
+        { id: 'sys-clock', name: 'Время', icon: '🕐', bg: 'linear-gradient(145deg,#1a1a2e,#0a0a1a)', html: HTML_CLOCK },
+        { id: 'sys-calc', name: 'Калькулятор', icon: '🧮', bg: 'linear-gradient(145deg,#ff9900,#cc6600)', html: HTML_CALC },
+        { id: 'sys-timer', name: 'Таймер', icon: '⏱️', bg: 'linear-gradient(145deg,#00c853,#008a43)', html: HTML_TIMER },
+        { id: 'sys-paint', name: 'Paint', icon: '🎨', bg: 'linear-gradient(145deg,#9b59b6,#6c3483)', html: HTML_PAINT },
+        { id: 'sys-files', name: 'Файлы', icon: '📁', bg: 'linear-gradient(145deg,#ffcc00,#cc9900)', html: HTML_FILES },
+        { id: 'sys-video', name: 'Видео', icon: '🎬', bg: 'linear-gradient(145deg,#c0392b,#7b241c)', html: HTML_VIDEO },
+        { id: 'sys-audio', name: 'Аудио', icon: '🎵', bg: 'linear-gradient(145deg,#1c8cf9,#0d6efd)', html: HTML_AUDIO }
+    ];
+    sys.forEach(s => {
+        const pos = getNextPosition();
+        apps.push({ id: s.id, name: s.name, icon: s.icon, bg: s.bg, border: '#000', html: s.html, fileName: 'Системное приложение', x: pos.x, y: pos.y, iconImage: null, isSystem: true, isSettings: s.id === 'sys-settings' });
+    });
+}
+
+/* ============================================================
+   СТАРТ
+   ============================================================ */
+addSystemApps();
+renderIcons();
+
+window.addEventListener('resize', () => {
+    const w = desktop.clientWidth, h = desktop.clientHeight;
+    let changed = false;
+    apps.forEach(a => {
+        if (a.x > w - 80) { a.x = Math.max(0, w - 80); changed = true; }
+        if (a.y > h - 90) { a.y = Math.max(0, h - 90); changed = true; }
+    });
+    if (changed) renderIcons();
+});
+
+})();
+</script>
+</body>
+</html>
